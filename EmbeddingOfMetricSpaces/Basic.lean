@@ -18,89 +18,60 @@ TODO:
 - Define general position
 -/
 
+lemma stabilityOfEpsilonInjective [MetricSpace X] [CompactSpace X] [MetricSpace Y] (f : X → Y)
+    (hf1 : Continuous f) (ε : ℝ) (hf2 : epsilonInjective f ε) :
+    ∃ δ > 0 , ∀ x y , dist (f x) (f y) < δ → dist x y < ε := by
+  by_contra! hcontra
 
-lemma stabilityOfEpsilonInjective [MetricSpace X] [CompactSpace X] [MetricSpace Y] (f : X → Y) (hf1 : Continuous f) (ε : ℝ) (hf2 : epsilonInjective f ε) : ∃ δ > 0 , ∀ x y , dist (f x) (f y) < δ → dist x y < ε := by
-  by_contra h
-  simp at h
-  have seqs_exists : ∀ (n : ℕ ), ∃ (a1 : X) (a2 : X), (dist (f a1) (f a2) < (1/2)^n) ∧ (ε ≤ dist a1 a2) := by
-    intro n
-    apply h ((1/2)^n)
-    simp
-  choose a1 a2 hd1 hd2 using seqs_exists
-  rcases CompactSpace.tendsto_subseq a1 with ⟨la1, φ, hφ, hla1⟩
-  rcases CompactSpace.tendsto_subseq (a2 ∘ φ) with ⟨la2, ψ, hψ, hla2⟩
+  -- we can find a pair of sequences ...
+  obtain ⟨x, y, hdf, hd⟩ : ∃ x y : ℕ → X,
+      Filter.Tendsto (fun n ↦ dist (f (x n)) (f (y n))) .atTop (nhds 0) ∧
+      ∀ n, ε ≤ (dist (x n) (y n)) := by
+    choose x y hdf hd using (fun n ↦ hcontra ((1 / 2) ^ n) (by norm_num))
+    refine ⟨x, y, ?_, hd⟩
+    simp only [Metric.tendsto_atTop, dist_zero_right, norm, abs_dist]
+    intro ε' hε'
+    obtain ⟨N, hN⟩ : ∃ N, (1 / 2) ^ N < ε' := exists_pow_lt_of_lt_one hε' (by norm_num)
+    refine ⟨N, fun n hn ↦ ?_⟩
+    have : ((1 : ℝ) / 2) ^ n ≤ ((1 : ℝ) / 2) ^ N :=
+      pow_le_pow_iff_right_of_lt_one₀ (by norm_num) (by norm_num) |>.mpr hn
+    order [hdf n]
 
-  let hla12 := hla1.comp hψ.tendsto_atTop
+  -- we can find a pair of convergent subsequences ...
+  obtain ⟨x₀, i, himono, hxi⟩ := CompactSpace.tendsto_subseq x
+  obtain ⟨y₀, j, hjmono, hyij⟩ := CompactSpace.tendsto_subseq (y ∘ i)
+  have hijmono : StrictMono (i ∘ j) := himono.comp hjmono
+  have hxij := Filter.Tendsto.comp hxi hjmono.tendsto_atTop
+  rw [Function.comp_assoc] at hxij hyij
 
-  let fhla1 := (Continuous.seqContinuous hf1 hla1).comp hψ.tendsto_atTop
-  let fhla2 := Continuous.seqContinuous hf1 hla2
+  -- we see that ..., so ...
+  have h₀ : dist (f x₀) (f y₀) = 0 := by
+    rw [continuous_iff_seqContinuous] at hf1
+    have h1 := Filter.Tendsto.dist (hf1 hxij) (hf1 hyij)
+    have h2 := Filter.Tendsto.comp hdf hijmono.tendsto_atTop
+    exact tendsto_nhds_unique h1 h2
+  rw [dist_eq_zero] at h₀
 
-  let difference : (ℕ → ℝ) :=
-    fun n ↦ Dist.dist (f <| a1 <| φ <| ψ n) (f ∘ a2 ∘ φ ∘ ψ <| n)
+  -- (so ...)
+  have : dist x₀ y₀ < ε := by
+    obtain ⟨hb, h⟩ := hf2 (f x₀)
+    have h1 := Set.mem_preimage.mpr (Set.mem_singleton (f x₀))
+    have h2 := h₀ ▸ Set.mem_preimage.mpr (Set.mem_singleton (f y₀))
+    order [Metric.dist_le_diam_of_mem hb h1 h2]
 
-  have hdifference : Filter.Tendsto difference Filter.atTop (nhds 0) := by
-    rw [Metric.tendsto_atTop]
-    intro ε hε
-    have test := tendsto_pow_atTop_nhds_zero_of_lt_one (by norm_num : (0 : ℝ ) ≤ 1/2) (by norm_num : 1/2 < ( 1 : ℝ ))
-    rw [Metric.tendsto_atTop] at test
-    let ⟨ N , hN ⟩:= test ε hε
-    use N
-    intro n hn
-    rw [Real.dist_0_eq_abs]
-    have : N ≤ (φ <| ψ <| N) := (StrictMono.comp hφ hψ).le_apply
-    have : N ≤ (φ <| ψ <| n) := this.trans (hφ.monotone (hψ.monotone hn))
-    specialize hN (φ <| ψ <| n) this
-    rw [Real.dist_0_eq_abs] at hN
-    specialize hd1 (φ <| ψ <| n )
-    simp [difference]
-    grind
-  have hconvergence : Filter.Tendsto difference Filter.atTop (nhds (dist (f la1) (f la2))) := by
-    let temporary_product := fun n ↦ (f <| a1 <| φ <| ψ <| n, f <| a2 <| φ <| ψ <| n)
-    have : (fun n ↦ (temporary_product n).1) = (f ∘  a1 ∘  φ ∘  ψ) := rfl
-    erw [← this] at fhla1
-    have : (fun n ↦ (temporary_product n).2) = (f ∘  a2 ∘  φ ∘  ψ) := rfl
-    erw [← this] at fhla2
-    have temporary_filter := Filter.tendsto_prod_iff'.mpr ⟨fhla1, fhla2⟩
-    rw [← nhds_prod_eq] at temporary_filter
-    have := Continuous.tendsto continuous_dist (f la1, f la2)
-    have := this.comp temporary_filter
-    unfold difference
-    unfold temporary_product at this
-    exact this
-  have := tendsto_nhds_unique hdifference hconvergence
-  have := eq_of_dist_eq_zero this.symm
-  have hdistance : dist la1 la2 < ε := by
-    have hhla2 : la2 ∈ f⁻¹' {f la1} := by
-      rw [this]
-      rfl
-    have hhla1 : la1 ∈ f⁻¹' {f la1} := by rfl
-    obtain ⟨bdd, epsbd⟩ := hf2 (f la1)
-    have b := Metric.dist_le_diam_of_mem bdd hhla1 hhla2
-    linarith
-  have hlowerBound : dist la1 la2 ≥ ε := by
-    let temporary_product := fun n ↦ (a1 <| φ <| ψ <| n, a2 <| φ <| ψ <| n)
-    have : (fun n ↦ (temporary_product n).1) = ( a1 ∘  φ ∘  ψ) := rfl
-    erw [← this] at hla12
-    have : (fun n ↦ (temporary_product n).2) = (  a2 ∘  φ ∘  ψ) := rfl
-    erw [← this] at hla2
-    have temporary_filter := Filter.tendsto_prod_iff'.mpr ⟨hla12, hla2⟩
-    rw [← nhds_prod_eq] at temporary_filter
-    have := Continuous.tendsto continuous_dist (la1, la2)
-    have := this.comp temporary_filter
-    unfold temporary_product at this
-    unfold Function.comp at this
-    simp at this
-    have subseqbound : ∀ (n : ℕ ), ε ≤ dist (a1 <| φ <| ψ <| n) (a2 <| φ <| ψ <| n) := by
-      intro n
-      exact hd2 (φ <| ψ <| n)
-    exact ge_of_tendsto' this subseqbound
-  linarith
+  -- on the other hand, ...
+  have : ε ≤ dist x₀ y₀ := by
+    have h1 := Filter.Tendsto.dist hxij hyij
+    exact ge_of_tendsto' h1 fun n ↦ hd ((i ∘ j) n)
+  order
 
 variable (X Y)
 
-def spaceOfEpsilonInjective [MetricSpace X] [CompactSpace X] [MetricSpace Y] (ε : ℝ) := {f : C(X, Y) | epsilonInjective f ε}
+def spaceOfEpsilonInjective [MetricSpace X] [CompactSpace X] [MetricSpace Y] (ε : ℝ) :=
+  {f : C(X, Y) | epsilonInjective f ε}
 
-lemma epsilonInjectiveMonotone [MetricSpace X] [MetricSpace Y] (f : X → Y) (ε : ℝ) (δ : ℝ ) (hδ : ε < δ) (hf : epsilonInjective f ε) : epsilonInjective f δ := by
+lemma epsilonInjectiveMonotone [MetricSpace X] [MetricSpace Y] (f : X → Y) (ε : ℝ) (δ : ℝ )
+    (hδ : ε < δ) (hf : epsilonInjective f ε) : epsilonInjective f δ := by
   simp [epsilonInjective] at hf ⊢
   intro y
   specialize hf y
@@ -108,7 +79,8 @@ lemma epsilonInjectiveMonotone [MetricSpace X] [MetricSpace Y] (f : X → Y) (ε
   exact hf.1
   linarith
 
-lemma diameterIsAttained [MetricSpace X] (S : Set X) (hS : IsCompact S) (ne_S : S.Nonempty) : ∃ w ∈ S, ∃ z ∈  S, dist w z = Metric.diam (S) := by
+lemma diameterIsAttained [MetricSpace X] (S : Set X) (hS : IsCompact S) (ne_S : S.Nonempty) :
+    ∃ w ∈ S, ∃ z ∈  S, dist w z = Metric.diam (S) := by
   have := IsCompact.prod hS hS
   rcases this.exists_isMaxOn (ne_S.prod ne_S) continuous_dist.continuousOn with ⟨x, hx, hhx⟩
   use x.1, hx.1, x.2, hx.2
@@ -121,8 +93,8 @@ lemma diameterIsAttained [MetricSpace X] (S : Set X) (hS : IsCompact S) (ne_S : 
   have ineq2 := Metric.dist_le_diam_of_mem hS.isBounded hx.1 hx.2
   linarith
 
-
-lemma epsilonInjectiveOpen [MetricSpace X] [CompactSpace X] [MetricSpace Y] (ε : ℝ) (hε : ε > 0) : IsOpen (spaceOfEpsilonInjective X Y ε) := by
+lemma epsilonInjectiveOpen [MetricSpace X] [CompactSpace X] [MetricSpace Y] (ε : ℝ) (hε : ε > 0) :
+    IsOpen (spaceOfEpsilonInjective X Y ε) := by
   rw [Metric.isOpen_iff]
   intro f hf
   unfold spaceOfEpsilonInjective at hf
