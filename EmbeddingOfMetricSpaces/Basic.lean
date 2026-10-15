@@ -18,6 +18,9 @@ TODO:
 - Define general position
 -/
 
+lemma exists_pow_inv_lt_of_pos {ε : ℝ} (hε : ε > 0) : ∃ N, (1 / 2) ^ N < ε := exists_pow_lt_of_lt_one hε (by norm_num)
+
+
 lemma stabilityOfEpsilonInjective [MetricSpace X] [CompactSpace X] [MetricSpace Y] (f : X → Y)
     (hf1 : Continuous f) (ε : ℝ) (hf2 : epsilonInjective f ε) :
     ∃ δ > 0 , ∀ x y , dist (f x) (f y) < δ → dist x y < ε := by
@@ -31,7 +34,7 @@ lemma stabilityOfEpsilonInjective [MetricSpace X] [CompactSpace X] [MetricSpace 
     refine ⟨x, y, ?_, hd⟩
     simp only [Metric.tendsto_atTop, dist_zero_right, norm, abs_dist]
     intro ε' hε'
-    obtain ⟨N, hN⟩ : ∃ N, (1 / 2) ^ N < ε' := exists_pow_lt_of_lt_one hε' (by norm_num)
+    obtain ⟨N, hN⟩ := exists_pow_inv_lt_of_pos hε'
     refine ⟨N, fun n hn ↦ ?_⟩
     have : ((1 : ℝ) / 2) ^ n ≤ ((1 : ℝ) / 2) ^ N :=
       pow_le_pow_iff_right_of_lt_one₀ (by norm_num) (by norm_num) |>.mpr hn
@@ -42,7 +45,6 @@ lemma stabilityOfEpsilonInjective [MetricSpace X] [CompactSpace X] [MetricSpace 
   obtain ⟨y₀, j, hjmono, hyij⟩ := CompactSpace.tendsto_subseq (y ∘ i)
   have hijmono : StrictMono (i ∘ j) := himono.comp hjmono
   have hxij := Filter.Tendsto.comp hxi hjmono.tendsto_atTop
-  rw [Function.comp_assoc] at hxij hyij
 
   -- we see that ..., so ...
   have hfd₀ : dist (f x₀) (f y₀) = 0 := by
@@ -69,7 +71,11 @@ variable (X Y) in
 def spaceOfEpsilonInjective [MetricSpace X] [CompactSpace X] [MetricSpace Y] (ε : ℝ) :=
   {f : C(X, Y) | epsilonInjective f ε}
 
-lemma epsilonInjectiveMonotone [MetricSpace X] [MetricSpace Y] (f : X → Y) (ε : ℝ) (δ : ℝ )
+variable (X Y) in
+def spaceOfEmbeddings [MetricSpace X] [CompactSpace X] [MetricSpace Y] :=
+  {f : C(X, Y) | Topology.IsEmbedding f}
+
+lemma epsilonInjectiveMonotone [MetricSpace X] [MetricSpace Y] {f : X → Y} {ε : ℝ} {δ : ℝ }
     (hδ : ε < δ) (hf : epsilonInjective f ε) : epsilonInjective f δ :=
   fun y ↦ ⟨(hf y).left, lt_trans (hf y).right hδ⟩
 
@@ -111,7 +117,7 @@ lemma epsilonInjectiveOpen [MetricSpace X] [CompactSpace X] [MetricSpace Y] (ε 
     rw [Set.mem_preimage, Set.mem_singleton_iff] at hw hz
     exact hwz ▸ hcalc (hz ▸ hw)
 
-lemma epsilonInjective_to_injective [MetricSpace X] [MetricSpace Y] (f : X → Y)
+lemma epsilonInjective_to_injective [MetricSpace X] [MetricSpace Y] {f : X → Y}
     (hf : ∀ ε > 0, epsilonInjective f ε) : f.Injective := by
   intro a b hhf
   rw [← zero_eq_dist]
@@ -120,3 +126,45 @@ lemma epsilonInjective_to_injective [MetricSpace X] [MetricSpace Y] (f : X → Y
   have ha : a ∈ f ⁻¹' {f a} := by simp
   have hb : b ∈ f ⁻¹' {f a} := by simp [hhf]
   linarith [Metric.dist_le_diam_of_mem hbound ha hb]
+
+lemma injective_to_epsilonInjective [MetricSpace X] [MetricSpace Y] {f : X → Y} (h : f.Injective) {ε : ℝ} (hε : ε > 0) : epsilonInjective f ε := by
+  intro y
+  by_cases! h : f ⁻¹' {y} = ∅
+  · simp [h, hε]
+  · have ⟨x, hx ⟩  : ∃ (x : X) , f ⁻¹' {y} = {x} := by
+      obtain ⟨x, hx⟩ := h
+      use x
+      ext a
+      constructor
+      ·intro hf
+       simp only [Set.mem_singleton_iff] at hx hf ⊢
+       rw [← hx] at hf
+       exact h hf
+      ·intro ha
+       simp only [Set.mem_singleton_iff] at ha
+       rw [ha]
+       exact hx
+    simp [hx, hε]
+
+lemma intersectionOfEpsilonInjective_to_Embedding [MetricSpace X] [CompactSpace X] [MetricSpace Y] : ⋂ (n : ℕ ), spaceOfEpsilonInjective X Y ((1/2)^n) = spaceOfEmbeddings X Y := by
+  ext f
+  constructor
+  · intro hf
+    simp only [Set.mem_iInter] at hf
+    apply (Continuous.isClosedEmbedding f.2 (epsilonInjective_to_injective fun ε hε ↦ ?_)).1
+    obtain ⟨N, hN⟩ := exists_pow_inv_lt_of_pos hε
+    specialize hf N
+    simp only [spaceOfEpsilonInjective] at hf
+    exact epsilonInjectiveMonotone hN hf
+  · intro hf
+    simp
+    intro ε hε
+    apply injective_to_epsilonInjective hf.2 (by simp)
+
+
+
+theorem embeddingsDense_of_epsilonEmbeddingsDense [MetricSpace X]  [CompactSpace X] [MetricSpace Y] [CompleteSpace Y] (h : ∀ ε > 0 , Dense (spaceOfEpsilonInjective X Y ε)) : Dense (spaceOfEmbeddings X Y) := by
+  rw [← intersectionOfEpsilonInjective_to_Embedding]
+  apply BaireSpace.baire_property
+  · simp [epsilonInjectiveOpen]
+  · simp [h]
