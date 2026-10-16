@@ -168,3 +168,16 @@ theorem embeddingsDense_of_epsilonEmbeddingsDense [MetricSpace X]  [CompactSpace
   apply BaireSpace.baire_property
   · simp [epsilonInjectiveOpen]
   · simp [h]
+
+
+open Affine
+
+abbrev R (N : ℕ) := EuclideanSpace ℝ (Fin N)
+
+def InGeneralPosition {N : ℕ} {m : ℕ} (f : Fin m → R N) :=
+  ∀ s : Set (Fin m), s.ncard ≤ N + 1 → AffineIndepOn ℝ f s
+
+lemma perturbationOfPointsGeneralPosition
+  {N : ℕ} {m : ℕ} (f : Fin m → R N) :
+  ∀ δ > 0, ∃ (g : Fin m → R N), InGeneralPosition g ∧ (∀ i : Fin m, dist (f i) (g i) < δ) := by
+  sorry
