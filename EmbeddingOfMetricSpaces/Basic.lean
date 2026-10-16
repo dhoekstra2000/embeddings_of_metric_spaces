@@ -69,6 +69,10 @@ variable (X Y) in
 def spaceOfEpsilonInjective [MetricSpace X] [CompactSpace X] [MetricSpace Y] (ε : ℝ) :=
   {f : C(X, Y) | epsilonInjective f ε}
 
+variable (X Y) in
+def spaceOfEmbeddings [MetricSpace X] [CompactSpace X] [MetricSpace Y] :=
+  {f : C(X, Y) | Topology.IsEmbedding f}
+
 lemma epsilonInjectiveMonotone [MetricSpace X] [MetricSpace Y] (f : X → Y) (ε : ℝ) (δ : ℝ )
     (hδ : ε < δ) (hf : epsilonInjective f ε) : epsilonInjective f δ :=
   fun y ↦ ⟨(hf y).left, lt_trans (hf y).right hδ⟩
@@ -120,3 +124,15 @@ lemma epsilonInjective_to_injective [MetricSpace X] [MetricSpace Y] (f : X → Y
   have ha : a ∈ f ⁻¹' {f a} := by simp
   have hb : b ∈ f ⁻¹' {f a} := by simp [hhf]
   linarith [Metric.dist_le_diam_of_mem hbound ha hb]
+
+open Affine
+
+abbrev R (N : ℕ) := EuclideanSpace ℝ (Fin N)
+
+def InGeneralPosition {N : ℕ} {m : ℕ} (f : Fin m → R N) :=
+  ∀ s : Set (Fin m), s.ncard ≤ N + 1 → AffineIndepOn ℝ f s
+
+lemma perturbationOfPointsGeneralPosition
+  {N : ℕ} {m : ℕ} (f : Fin m → R N) :
+  ∀ δ > 0, ∃ (g : Fin m → R N), InGeneralPosition g ∧ (∀ i : Fin m, dist (f i) (g i) < δ) := by
+  sorry
