@@ -180,4 +180,18 @@ def InGeneralPosition {N : ℕ} {m : ℕ} (f : Fin m → R N) :=
 lemma perturbationOfPointsGeneralPosition
   {N : ℕ} {m : ℕ} (f : Fin m → R N) :
   ∀ δ > 0, ∃ (g : Fin m → R N), InGeneralPosition g ∧ (∀ i : Fin m, dist (f i) (g i) < δ) := by
-  sorry
+  intro δ hδ
+  induction m with
+  | zero =>
+    use f
+    unfold InGeneralPosition
+    simp only [dist_self, IsEmpty.forall_iff, and_true]
+    intro s hs
+    simp [Set.eq_empty_of_isEmpty s]
+  | succ m  hm =>
+    specialize hm (fun (x : Fin m) ↦ f ⟨x, by lia⟩)
+    obtain ⟨g, ⟨hg1, hg2⟩⟩ := hm
+    let hyp : Set (Fin m) → AffineSubspace ℝ (R N) := fun s ↦ affineSpan ℝ (g '' s)
+    have hyp_closed : ∀ s : Set (Fin m), IsClosed (hyp s).carrier := by
+      sorry
+    sorry
