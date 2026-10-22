@@ -171,6 +171,7 @@ theorem embeddingsDense_of_epsilonEmbeddingsDense [MetricSpace X]  [CompactSpace
 
 
 open Affine
+open Metric
 
 abbrev R (N : ℕ) := EuclideanSpace ℝ (Fin N)
 
@@ -192,6 +193,46 @@ lemma perturbationOfPointsGeneralPosition
     specialize hm (fun (x : Fin m) ↦ f ⟨x, by lia⟩)
     obtain ⟨g, ⟨hg1, hg2⟩⟩ := hm
     let hyp : Set (Fin m) → AffineSubspace ℝ (R N) := fun s ↦ affineSpan ℝ (g '' s)
-    have hyp_closed : ∀ s : Set (Fin m), IsClosed (hyp s).carrier := by
-      sorry
-    sorry
+    have hyp_closed : ∀ s : Set (Fin m), IsClosed (hyp s : Set (R N)) :=
+      fun s ↦ AffineSubspace.closed_of_finiteDimensional (hyp s)
+    have hyp_no_interior : ∀ s : Set (Fin m), s.ncard ≤ N → interior (hyp s : Set (R N)) = ∅ := by
+      intro s hs
+      by_contra! h'
+      rw [Convex.interior_nonempty_iff_affineSpan_eq_top (by simpa [hyp] using (affineSpan ℝ (g '' s)).convex)] at h'
+      refine affineSpan_image_ne_top_of_encard_le_finrank ℝ s.toFinite ?_ g ?_
+      · calc
+          s.encard = s.ncard := s.coe_ncard_eq_encard.symm
+          _ ≤ N := ENat.natCast_le_natCast.mpr hs
+          _ = Module.finrank ℝ (R N) := ENat.natCast_inj.mpr (Eq.symm (by apply finrank_euclideanSpace_fin))
+      · unfold hyp at h'
+        rw [← h']
+        rw [(affineSpan ℝ (g '' s)).affineSpan_coe]
+    have hyp_nowhere_dense : ∀ s : Set (Fin m), s.ncard ≤ N → IsNowhereDense (hyp s : Set (R N)) := by
+      intro s hs
+      calc
+        interior (closure (hyp s)) = interior (hyp s : Set (R N)) := by rw [(hyp_closed s).closure_eq]
+        _ = ∅ := by exact hyp_no_interior s hs
+    have h : interior (⋃ s : { s : Set (Fin m) // s.ncard ≤ N }, hyp s.1 : Set (R N)) = ∅ := by
+      apply interior_iUnion_of_isClosed
+      · intro i
+        apply hyp_closed i
+      · intro i
+        apply hyp_nowhere_dense i i.2
+    have h' : Dense ((⋃ s : { s : Set (Fin m) // s.ncard ≤ N }, hyp s.1 : Set (R N))ᶜ) := interior_eq_empty_iff_dense_compl.mp h
+    have : (ball (f ⟨m, by lia⟩) δ ∩ (⋃ s : { s : Set (Fin m) // s.ncard ≤ N }, hyp s.1 : Set (R N))ᶜ).Nonempty := Dense.inter_open_nonempty h' _ isOpen_ball (nonempty_ball.mpr hδ)
+    obtain ⟨x, ⟨hx1, hx2⟩⟩ := this
+    let k : Fin (m + 1) → R N := fun i ↦ if h : i < m then g ⟨i, by lia⟩ else x
+    use k
+    constructor
+    · sorry
+    · intro i
+      by_cases h : i < m
+      · unfold k
+        simp only [h, ↓reduceDIte]
+        exact hg2 ⟨i, by lia⟩
+      · unfold k
+        simp only [h, ↓reduceDIte]
+        have : i = ⟨m, by lia⟩ := by lia
+        rw [this]
+        rw [← Metric.mem_ball']
+        exact hx1
